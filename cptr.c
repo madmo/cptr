@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2014 Moritz Bitsch <moritzbitsch@gmail.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
 #include "cptr.h"
 
 #include <stdlib.h>
@@ -40,6 +56,8 @@ void* cptr_alloc(size_t size)
 	p = malloc(sizeof(cptr) + size);
 	p->data = ((char*)p) + sizeof(cptr);
 	p->refCount = 1;
+	p->children.head = NULL;
+	p->children.tail = NULL;
 	return p->data;
 }
 
@@ -51,7 +69,7 @@ void* cptr_retain(void* ptr, void* parent)
 
 	if (parent) {
 		cptr* pp = (cptr*)(((char*)parent) - sizeof(cptr));
-		addptr(&pp->children, ptr);
+		addptr(&pp->children, p);
 	}
 
 	return ptr;
@@ -64,12 +82,12 @@ void cptr_release(void* ptr)
 	p->refCount--;
 
 	if (p->refCount == 0) {
-		void* c = p->children.head;
-
-		while (c) {
-			cptr_release(c);
+		while (p->children.head) {
+			cptr* next = p->children.head->next;
+			cptr_release(((char*)p->children.head) + sizeof(cptr));
+			p->children.head = next;
 		}
 
-		free(ptr);
+		free(p);
 	}
 }
